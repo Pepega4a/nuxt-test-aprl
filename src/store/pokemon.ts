@@ -30,6 +30,7 @@ export const usePokemonStore = defineStore("pokemon", () => {
   const totalPokemon = ref<number>(0);
   const currentPage = ref<number>(1);
   const isLoading = ref<boolean>(false);
+  const showFAQ = ref(false);
 
   const fetchPokemon = async () => {
     isLoading.value = true;
@@ -37,7 +38,7 @@ export const usePokemonStore = defineStore("pokemon", () => {
       const response = await axios.get(`https://pokeapi.co/api/v2/pokemon?limit=${limit.value}`);
       pokemonList.value = response.data.results;
       totalPokemon.value = response.data.count;
-      
+
       const detailsPromises = response.data.results.map(async (pokemon: Pokemon) => {
         const detailsResponse = await axios.get(pokemon.url);
         return detailsResponse.data;
@@ -50,12 +51,32 @@ export const usePokemonStore = defineStore("pokemon", () => {
     }
   };
 
-  const filteredPokemon = computed(() =>
-    detailedPokemonList.value.filter((p) =>
-      p.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      p.types.some(t => t.type.name.toLowerCase().includes(searchQuery.value.toLowerCase()))
-    )
-  );
+  const filteredPokemon = computed(() => {
+    const searchTerms = searchQuery.value.toLowerCase().split(",").map(term => term.trim());
+  
+    return detailedPokemonList.value.filter(pokemon => {
+      return searchTerms.every(term => {
+        if (term.includes(":")) {
+          const [key, value] = term.split(":").map(t => t.trim());
+  
+          if (key === "height") {
+            return pokemon.height.toString() === value;
+          }
+          if (key === "weight") {
+            return pokemon.weight.toString() === value;
+          }
+          return pokemon.stats.some(stat => stat.stat.name.toLowerCase() === key && stat.base_stat.toString() === value);
+        }
+  
+        return (
+          pokemon.name.toLowerCase().includes(term) ||
+          pokemon.types.some(t => t.type.name.toLowerCase().includes(term)) ||
+          pokemon.abilities.some(a => a.ability.name.toLowerCase().includes(term))
+        );
+      });
+    });
+  });
+  
 
   const selectPokemon = (name: string) => {
     selectedPokemon.value = detailedPokemonList.value.find(p => p.name === name) || null;
@@ -64,6 +85,8 @@ export const usePokemonStore = defineStore("pokemon", () => {
   const closeModal = () => {
     selectedPokemon.value = null;
   };
+
+  const toggleFAQ = () => { showFAQ.value = !showFAQ.value; };
 
   const loadMore = async () => {
     if (limit.value < totalPokemon.value) {
@@ -96,6 +119,8 @@ export const usePokemonStore = defineStore("pokemon", () => {
     totalPokemon,
     currentPage,
     paginatedPokemon,
-    isLoading
+    isLoading,
+    toggleFAQ,
+    showFAQ
   };
 });
